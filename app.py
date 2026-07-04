@@ -3,7 +3,10 @@ from database import init_db, get_connection
 from sentiment import analyze
 from risk import check_crisis_keywords, check_mood_trend, log_alert
 
+
 app = Flask(__name__)
+
+init_db() 
 
 # ─── Empathetic response logic ───────────────────────────────────────────────
 
@@ -27,6 +30,7 @@ RESPONSES = {
         "You don't have to face this alone."
     )
 }
+
 
 import random
 
@@ -131,6 +135,5 @@ def chat_history():
 # ─── Run ─────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    init_db()
     print("MindGuard running at http://127.0.0.1:5000")
     app.run(debug=True)
