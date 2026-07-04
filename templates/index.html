@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MindGuard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    min-height: 100vh;
+  }
+  header {
+    background: #1e293b;
+    padding: 16px 24px;
+    border-bottom: 1px solid #334155;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header h1 { font-size: 20px; color: #7c3aed; }
+  header span { font-size: 13px; color: #94a3b8; }
+
+  .sentiment-tag {
+  font-size: 11px;
+  margin-top: 6px;
+  opacity: 0.85;
+  color: #e9d5ff;   /* light purple — purple bubble pe visible hoga */
+}
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 0;
+    height: calc(100vh - 57px);
+  }
+
+  /* ── Chat panel ── */
+  .chat-panel {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #334155;
+  }
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .msg {
+    max-width: 72%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .msg.user {
+    align-self: flex-end;
+    background: #7c3aed;
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+  .msg.bot {
+    align-self: flex-start;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-bottom-left-radius: 4px;
+  }
+  .msg .sentiment-tag {
+    font-size: 11px;
+    margin-top: 4px;
+    opacity: 0.7;
+  }
+  .chat-input {
+    display: flex;
+    gap: 8px;
+    padding: 16px;
+    border-top: 1px solid #334155;
+    background: #0f172a;
+  }
+  .chat-input input {
+    flex: 1;
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #e2e8f0;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    outline: none;
+  }
+  .chat-input input:focus { border-color: #7c3aed; }
+  .chat-input button {
+    background: #7c3aed;
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .chat-input button:hover { background: #6d28d9; }
+
+  /* ── Right sidebar ── */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    background: #0f172a;
+  }
+
+  /* Mood check-in */
+  .mood-section {
+    padding: 20px;
+    border-bottom: 1px solid #334155;
+  }
+  .mood-section h2 { font-size: 15px; color: #a78bfa; margin-bottom: 12px; }
+  .mood-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .mood-slider-row input[type=range] { flex: 1; accent-color: #7c3aed; }
+  .mood-val {
+    font-size: 22px;
+    font-weight: 600;
+    color: #a78bfa;
+    min-width: 28px;
+    text-align: center;
+  }
+  .mood-section textarea {
+    width: 100%;
+    background: #1e293b;
+    border: 1px solid #334155;
+    color: #e2e8f0;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    resize: none;
+    height: 56px;
+    margin-bottom: 10px;
+    outline: none;
+  }
+  .mood-section button {
+    width: 100%;
+    background: #1e293b;
+    border: 1px solid #7c3aed;
+    color: #a78bfa;
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .mood-section button:hover { background: #2d1b69; }
+
+  /* Alert box */
+  .alert-box {
+    margin: 0 20px 16px;
+    background: #450a0a;
+    border: 1px solid #991b1b;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 13px;
+    color: #fca5a5;
+    display: none;
+  }
+
+  /* Dashboard */
+  .dashboard-section {
+    padding: 20px;
+  }
+  .dashboard-section h2 { font-size: 15px; color: #a78bfa; margin-bottom: 12px; }
+  .stats-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .stat-card {
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+  }
+  .stat-card .val { font-size: 22px; font-weight: 600; color: #a78bfa; }
+  .stat-card .lbl { font-size: 11px; color: #64748b; margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>MindGuard</h1>
+  <span>AI Mental Health Assistant · Demo</span>
+</header>
+
+<div class="layout">
+
+  <!-- Chat panel -->
+  <div class="chat-panel">
+    <div class="messages" id="messages">
+      <div class="msg bot">
+        Hi! I'm MindGuard. How are you feeling today? You can talk to me about anything on your mind.
+      </div>
+    </div>
+    <div class="chat-input">
+      <input id="user-input" type="text" placeholder="Type how you're feeling..." 
+             onkeydown="if(event.key==='Enter') sendMessage()">
+      <button onclick="sendMessage()">Send</button>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+
+    <!-- Mood check-in -->
+    <div class="mood-section">
+      <h2>Daily Mood Check-in</h2>
+      <div class="mood-slider-row">
+        <span style="font-size:12px;color:#64748b">1</span>
+        <input type="range" id="mood-slider" min="1" max="10" value="5"
+               oninput="document.getElementById('mood-val').textContent=this.value">
+        <span style="font-size:12px;color:#64748b">10</span>
+        <div class="mood-val" id="mood-val">5</div>
+      </div>
+      <textarea id="mood-note" placeholder="Optional note about your day..."></textarea>
+      <button onclick="logMood()">Log Today's Mood</button>
+    </div>
+
+    <!-- Alert box (hidden by default) -->
+    <div class="alert-box" id="alert-box">
+      ⚠️ <span id="alert-text"></span>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="dashboard-section">
+      <h2>Mood Trend (Last 7 Days)</h2>
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="val" id="avg-score">—</div>
+          <div class="lbl">Avg mood</div>
+        </div>
+        <div class="stat-card">
+          <div class="val" id="total-checkins">—</div>
+          <div class="lbl">Check-ins</div>
+        </div>
+      </div>
+      <canvas id="mood-chart" height="180"></canvas>
+    </div>
+
+  </div>
+</div>
+
+<script>
+let moodChart = null;
+
+// ─── Chat ────────────────────────────────────────────────────────────────────
+async function sendMessage() {
+  const input = document.getElementById('user-input');
+  const text  = input.value.trim();
+  if (!text) return;
+
+  appendMessage('user', text, null);
+  input.value = '';
+
+  const res  = await fetch('/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: text })
+  });
+  const data = await res.json();
+  appendMessage('bot', data.reply, data.sentiment);
+}
+
+function appendMessage(role, content, sentiment) {
+  const box = document.getElementById('messages');
+  const div = document.createElement('div');
+  div.className = `msg ${role}`;
+  div.innerHTML = `<div>${content}</div>`;
+  if (sentiment && role === 'user') {
+    const tag = document.createElement('div');
+    tag.className = 'sentiment-tag';
+    const emoji = { positive: '😊', neutral: '😐', negative: '😔' };
+    tag.textContent = `${emoji[sentiment] || ''} ${sentiment}`;
+    div.appendChild(tag);
+  }
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+// ─── Mood logging ─────────────────────────────────────────────────────────────
+async function logMood() {
+  const score = document.getElementById('mood-slider').value;
+  const note  = document.getElementById('mood-note').value;
+
+  const res  = await fetch('/mood', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ score: parseInt(score), note })
+  });
+  const data = await res.json();
+
+  document.getElementById('mood-note').value = '';
+  alert(`Mood ${score}/10 logged!`);
+
+  if (data.alert && data.alert.alert) {
+    const box = document.getElementById('alert-box');
+    document.getElementById('alert-text').textContent = data.alert.reason;
+    box.style.display = 'block';
+  }
+
+  loadDashboard();
+}
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  const res  = await fetch('/data/mood');
+  const data = await res.json();
+
+  if (data.length === 0) return;
+
+  const labels = data.map(d => d.day.slice(5));   // "MM-DD"
+  const scores = data.map(d => d.score);
+
+  document.getElementById('avg-score').textContent =
+    (scores.reduce((a,b) => a+b, 0) / scores.length).toFixed(1);
+  document.getElementById('total-checkins').textContent = scores.length;
+
+  if (moodChart) moodChart.destroy();
+  moodChart = new Chart(document.getElementById('mood-chart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Mood',
+        data: scores,
+        borderColor: '#7c3aed',
+        backgroundColor: 'rgba(124,58,237,0.15)',
+        borderWidth: 2,
+        pointBackgroundColor: '#a78bfa',
+        tension: 0.4,
+        fill: true
+      }]
+    },
+    options: {
+      scales: {
+        y: {
+          min: 1, max: 10,
+          ticks: { color: '#64748b', stepSize: 2 },
+          grid: { color: '#1e293b' }
+        },
+        x: { ticks: { color: '#64748b' }, grid: { color: '#1e293b' } }
+      },
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
+// Load on page open
+loadDashboard();
+</script>
+</body>
+</html>
