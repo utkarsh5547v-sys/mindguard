@@ -1,8 +1,11 @@
-import requests
-import json
+import os
+from groq import Groq
+from dotenv import load_dotenv
 
-OLLAMA_URL = "http://localhost:11434/api/chat"
-MODEL = "gemma3:4b"
+load_dotenv()
+
+client = Groq(api_key=os.environ.get("GROQ_API_KEY"))
+MODEL = "llama-3.3-70b-versatile"
 
 SYSTEM_PROMPT = """You are MindGuard, a compassionate AI mental health assistant designed to support students.
 
@@ -20,24 +23,14 @@ You understand full sentences and emotional nuance, not just keywords."""
 
 
 def get_response(conversation_history: list) -> str:
-    """
-    conversation_history = list of dicts:
-    [{"role": "user", "content": "..."}, {"role": "assistant", "content": "..."}]
-    """
-    payload = {
-        "model": MODEL,
-        "messages": [{"role": "system", "content": SYSTEM_PROMPT}] + conversation_history,
-        "stream": False
-    }
-
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + conversation_history
     try:
-        response = requests.post(OLLAMA_URL, json=payload, timeout=60)
-        response.raise_for_status()
-        data = response.json()
-        return data["message"]["content"]
-    except requests.exceptions.ConnectionError:
-        return "I'm having trouble connecting right now. Please make sure Ollama is running."
-    except requests.exceptions.Timeout:
-        return "I'm thinking a bit slowly right now. Please try again."
+        completion = client.chat.completions.create(
+            model=MODEL,
+            messages=messages,
+            temperature=0.7,
+            max_tokens=200
+        )
+        return completion.choices[0].message.content
     except Exception as e:
-        return f"Something went wrong: {str(e)}"
+        return f"I'm having trouble responding right now. Please try again. ({str(e)})"
