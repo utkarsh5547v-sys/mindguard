@@ -19,17 +19,22 @@
     border-bottom: 1px solid #334155;
     display: flex;
     align-items: center;
-    gap: 12px;
+    justify-content: space-between;
   }
+  .header-left { display: flex; align-items: center; gap: 12px; }
   header h1 { font-size: 20px; color: #7c3aed; }
   header span { font-size: 13px; color: #94a3b8; }
-
-  .sentiment-tag {
-  font-size: 11px;
-  margin-top: 6px;
-  opacity: 0.85;
-  color: #e9d5ff;   /* light purple — purple bubble pe visible hoga */
-}
+  .reset-btn {
+    background: transparent;
+    border: 1px solid #334155;
+    color: #64748b;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+  }
+  .reset-btn:hover { border-color: #7c3aed; color: #a78bfa; }
 
   .layout {
     display: grid;
@@ -38,7 +43,7 @@
     height: calc(100vh - 57px);
   }
 
-  /* ── Chat panel ── */
+  /* Chat panel */
   .chat-panel {
     display: flex;
     flex-direction: column;
@@ -57,7 +62,7 @@
     padding: 10px 14px;
     border-radius: 12px;
     font-size: 14px;
-    line-height: 1.5;
+    line-height: 1.6;
   }
   .msg.user {
     align-self: flex-end;
@@ -71,11 +76,39 @@
     border: 1px solid #334155;
     border-bottom-left-radius: 4px;
   }
-  .msg .sentiment-tag {
+  .sentiment-tag {
     font-size: 11px;
-    margin-top: 4px;
-    opacity: 0.7;
+    margin-top: 5px;
+    color: #c4b5fd;
+    opacity: 0.85;
   }
+
+  /* Typing indicator */
+  .typing-indicator {
+    align-self: flex-start;
+    background: #1e293b;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    border-bottom-left-radius: 4px;
+    padding: 12px 16px;
+    display: none;
+    gap: 5px;
+    align-items: center;
+  }
+  .typing-indicator.visible { display: flex; }
+  .dot {
+    width: 7px; height: 7px;
+    background: #7c3aed;
+    border-radius: 50%;
+    animation: bounce 1.2s infinite;
+  }
+  .dot:nth-child(2) { animation-delay: 0.2s; }
+  .dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+    30% { transform: translateY(-6px); opacity: 1; }
+  }
+
   .chat-input {
     display: flex;
     gap: 8px;
@@ -94,6 +127,7 @@
     outline: none;
   }
   .chat-input input:focus { border-color: #7c3aed; }
+  .chat-input input:disabled { opacity: 0.5; }
   .chat-input button {
     background: #7c3aed;
     color: #fff;
@@ -102,18 +136,18 @@
     border-radius: 8px;
     cursor: pointer;
     font-size: 14px;
+    transition: background 0.2s;
   }
-  .chat-input button:hover { background: #6d28d9; }
+  .chat-input button:hover:not(:disabled) { background: #6d28d9; }
+  .chat-input button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  /* ── Right sidebar ── */
+  /* Sidebar */
   .sidebar {
     display: flex;
     flex-direction: column;
     overflow-y: auto;
     background: #0f172a;
   }
-
-  /* Mood check-in */
   .mood-section {
     padding: 20px;
     border-bottom: 1px solid #334155;
@@ -146,6 +180,7 @@
     margin-bottom: 10px;
     outline: none;
   }
+  .mood-section textarea:focus { border-color: #7c3aed; }
   .mood-section button {
     width: 100%;
     background: #1e293b;
@@ -155,10 +190,10 @@
     border-radius: 8px;
     cursor: pointer;
     font-size: 14px;
+    transition: background 0.2s;
   }
   .mood-section button:hover { background: #2d1b69; }
 
-  /* Alert box */
   .alert-box {
     margin: 0 20px 16px;
     background: #450a0a;
@@ -168,12 +203,10 @@
     font-size: 13px;
     color: #fca5a5;
     display: none;
+    line-height: 1.5;
   }
 
-  /* Dashboard */
-  .dashboard-section {
-    padding: 20px;
-  }
+  .dashboard-section { padding: 20px; }
   .dashboard-section h2 { font-size: 15px; color: #a78bfa; margin-bottom: 12px; }
   .stats-row {
     display: grid;
@@ -195,30 +228,36 @@
 <body>
 
 <header>
-  <h1>MindGuard</h1>
-  <span>AI Mental Health Assistant · Demo</span>
+  <div class="header-left">
+    <h1>MindGuard</h1>
+    <span>AI Mental Health Assistant</span>
+  </div>
+  <button class="reset-btn" onclick="resetConversation()">New Conversation</button>
 </header>
 
 <div class="layout">
-
-  <!-- Chat panel -->
   <div class="chat-panel">
     <div class="messages" id="messages">
       <div class="msg bot">
         Hi! I'm MindGuard. How are you feeling today? You can talk to me about anything on your mind.
       </div>
     </div>
+
+    <!-- Typing indicator -->
+    <div class="typing-indicator" id="typing">
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+    </div>
+
     <div class="chat-input">
-      <input id="user-input" type="text" placeholder="Type how you're feeling..." 
-             onkeydown="if(event.key==='Enter') sendMessage()">
-      <button onclick="sendMessage()">Send</button>
+      <input id="user-input" type="text" placeholder="Type how you're feeling..."
+             onkeydown="if(event.key==='Enter' && !this.disabled) sendMessage()">
+      <button id="send-btn" onclick="sendMessage()">Send</button>
     </div>
   </div>
 
-  <!-- Sidebar -->
   <div class="sidebar">
-
-    <!-- Mood check-in -->
     <div class="mood-section">
       <h2>Daily Mood Check-in</h2>
       <div class="mood-slider-row">
@@ -232,12 +271,10 @@
       <button onclick="logMood()">Log Today's Mood</button>
     </div>
 
-    <!-- Alert box (hidden by default) -->
     <div class="alert-box" id="alert-box">
       ⚠️ <span id="alert-text"></span>
     </div>
 
-    <!-- Dashboard -->
     <div class="dashboard-section">
       <h2>Mood Trend (Last 7 Days)</h2>
       <div class="stats-row">
@@ -252,48 +289,94 @@
       </div>
       <canvas id="mood-chart" height="180"></canvas>
     </div>
-
   </div>
 </div>
 
 <script>
 let moodChart = null;
 
-// ─── Chat ────────────────────────────────────────────────────────────────────
 async function sendMessage() {
-  const input = document.getElementById('user-input');
-  const text  = input.value.trim();
+  const input   = document.getElementById('user-input');
+  const sendBtn = document.getElementById('send-btn');
+  const text    = input.value.trim();
   if (!text) return;
 
-  appendMessage('user', text, null);
+  // UI lock karo jab tak response na aaye
   input.value = '';
+  input.disabled = true;
+  sendBtn.disabled = true;
 
-  const res  = await fetch('/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message: text })
-  });
-  const data = await res.json();
-  appendMessage('bot', data.reply, data.sentiment);
+  appendMessage('user', text, null);       // yaha se start hai maybe
+  showTyping(true);
+
+  try {
+    const res  = await fetch('/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: text })
+    });
+    const data = await res.json();
+    showTyping(false);
+    const userMsgs = document.querySelectorAll('.msg.user');
+    const lastUser = userMsgs[userMsgs.length - 1];
+
+    if (lastUser && data.sentiment) {
+    const tag = document.createElement('div');
+    tag.className = 'sentiment-tag';
+    const emoji = { positive: '😊 positive', neutral: '😐 neutral', negative: '😔 negative' };
+    tag.textContent = emoji[data.sentiment] || data.sentiment;
+    lastUser.appendChild(tag);
+  }
+
+    appendMessage('bot', data.reply, data.sentiment);
+  } catch (err) {
+    showTyping(false);
+    appendMessage('bot', 'Something went wrong. Please try again.', null);
+  } finally {
+    input.disabled = false;
+    sendBtn.disabled = false;
+    input.focus();
+  }
 }
 
 function appendMessage(role, content, sentiment) {
   const box = document.getElementById('messages');
   const div = document.createElement('div');
   div.className = `msg ${role}`;
-  div.innerHTML = `<div>${content}</div>`;
+
+  const text = document.createElement('div');
+  text.textContent = content;
+  div.appendChild(text);
+
   if (sentiment && role === 'user') {
     const tag = document.createElement('div');
     tag.className = 'sentiment-tag';
-    const emoji = { positive: '😊', neutral: '😐', negative: '😔' };
-    tag.textContent = `${emoji[sentiment] || ''} ${sentiment}`;
+    const emoji = { positive: '😊 positive', neutral: '😐 neutral', negative: '😔 negative' };
+    tag.textContent = emoji[sentiment] || sentiment;
     div.appendChild(tag);
   }
+
   box.appendChild(div);
   box.scrollTop = box.scrollHeight;
 }
 
-// ─── Mood logging ─────────────────────────────────────────────────────────────
+function showTyping(visible) {
+  const el = document.getElementById('typing');
+  const box = document.getElementById('messages');
+  el.className = visible ? 'typing-indicator visible' : 'typing-indicator';
+  if (visible) box.scrollTop = box.scrollHeight;
+}
+
+async function resetConversation() {
+  if (!confirm('Start a new conversation? Current chat will be cleared.')) return;
+
+  await fetch('/reset', { method: 'POST' });
+
+  const box = document.getElementById('messages');
+  box.innerHTML = '';
+  appendMessage('bot', "Hi! I'm MindGuard. How are you feeling today? You can talk to me about anything on your mind.", null);
+}
+
 async function logMood() {
   const score = document.getElementById('mood-slider').value;
   const note  = document.getElementById('mood-note').value;
@@ -306,7 +389,6 @@ async function logMood() {
   const data = await res.json();
 
   document.getElementById('mood-note').value = '';
-  alert(`Mood ${score}/10 logged!`);
 
   if (data.alert && data.alert.alert) {
     const box = document.getElementById('alert-box');
@@ -315,20 +397,19 @@ async function logMood() {
   }
 
   loadDashboard();
+  alert(`Mood ${score}/10 logged!`);
 }
 
-// ─── Dashboard ────────────────────────────────────────────────────────────────
 async function loadDashboard() {
   const res  = await fetch('/data/mood');
   const data = await res.json();
-
   if (data.length === 0) return;
 
-  const labels = data.map(d => d.day.slice(5));   // "MM-DD"
+  const labels = data.map(d => d.day.slice(5));
   const scores = data.map(d => d.score);
 
   document.getElementById('avg-score').textContent =
-    (scores.reduce((a,b) => a+b, 0) / scores.length).toFixed(1);
+    (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1);
   document.getElementById('total-checkins').textContent = scores.length;
 
   if (moodChart) moodChart.destroy();
@@ -361,7 +442,6 @@ async function loadDashboard() {
   });
 }
 
-// Load on page open
 loadDashboard();
 </script>
 </body>

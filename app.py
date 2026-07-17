@@ -1,10 +1,17 @@
-from flask import Flask, request, jsonify, render_template
+# from flask import Flask, request, jsonify, render_template
 from database import init_db, get_connection
 from sentiment import analyze
 from risk import check_crisis_keywords, check_mood_trend, log_alert
 
+from flask import Flask, request, jsonify, render_template, session
+from chat_engine import get_response
+import os
+
+
 
 app = Flask(__name__)
+app.secret_key = "mindguard-secret-2024"  # session ke liye zaroori
+# app.secret_key = os.getenv("SECRET_KEY")
 
 init_db() 
 
@@ -53,15 +60,30 @@ def chat():
     if not user_msg:
         return jsonify({"error": "Empty message"}), 400
 
-    # Sentiment analysis
+    # Conversation history session mein rakho
+    if "history" not in session:
+        session["history"] = []
+
+    # User message history mein add karo
+    session["history"].append({"role": "user", "content": user_msg})
+    
+    # Last 10 messages hi rakho (memory efficient)
+    if len(session["history"]) > 10:
+        session["history"] = session["history"][-10:]
+
+    # Ollama se response lo
+    bot_reply = get_response(session["history"])
+
+    # Bot response history mein add karo
+    session["history"].append({"role": "assistant", "content": bot_reply})
+    session.modified = True  # Flask ko batao session change hua
+
+    # Sentiment analyze karo (background mein)
     result = analyze(user_msg)
     polarity = result["polarity"]
     label = result["label"]
 
-    # Bot response
-    bot_reply = generate_response(user_msg, label)
-
-    # Save both messages
+    # Database mein save karo
     conn = get_connection()
     conn.execute(
         "INSERT INTO messages (role, content, sentiment) VALUES (?, ?, ?)",
@@ -74,11 +96,50 @@ def chat():
     conn.commit()
     conn.close()
 
+    # Crisis check
+    if check_crisis_keywords(user_msg):
+        log_alert(f"Crisis keywords detected: {user_msg[:50]}")
+
     return jsonify({
         "reply": bot_reply,
         "sentiment": label,
         "polarity": round(polarity, 2)
     })
+
+
+# @app.route("/chat", methods=["POST"])
+# def chat():
+#     data = request.get_json()
+#     user_msg = data.get("message", "").strip()
+#     if not user_msg:
+#         return jsonify({"error": "Empty message"}), 400
+
+#     # Sentiment analysis
+#     result = analyze(user_msg)
+#     polarity = result["polarity"]
+#     label = result["label"]
+
+#     # Bot response
+#     bot_reply = generate_response(user_msg, label)
+
+#     # Save both messages
+#     conn = get_connection()
+#     conn.execute(
+#         "INSERT INTO messages (role, content, sentiment) VALUES (?, ?, ?)",
+#         ("user", user_msg, polarity)
+#     )
+#     conn.execute(
+#         "INSERT INTO messages (role, content) VALUES (?, ?)",
+#         ("bot", bot_reply)
+#     )
+#     conn.commit()
+#     conn.close()
+
+#     return jsonify({
+#         "reply": bot_reply,
+#         "sentiment": label,
+#         "polarity": round(polarity, 2)
+#     })
 
 
 @app.route("/mood", methods=["POST"])
@@ -101,6 +162,11 @@ def log_mood():
         log_alert(trend["reason"])
 
     return jsonify({"status": "saved", "alert": trend})
+
+@app.route("/reset", methods=["POST"])
+def reset():
+    session.clear()
+    return jsonify({"status": "reset"})
 
 
 @app.route("/data/mood")
